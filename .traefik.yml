@@ -18,5 +18,5 @@ bannerPath: assets/banner.png
 # This is mandatory,
 # and Plugins Catalog will try to execute the plugin with the data you provide as part of its startup validity tests.
 testData:
-  Headers:
-    Authorization: Bearer bad-token
+  public_key: base58-encoded
+  login_url: url_to_redirect
