@@ -1,0 +1,6 @@
+# github.com/btcsuite/btcutil v1.0.2
+## explicit; go 1.13
+github.com/btcsuite/btcutil/base58
+# github.com/golang-jwt/jwt/v5 v5.2.0
+## explicit; go 1.18
+github.com/golang-jwt/jwt/v5
