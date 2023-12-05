@@ -1,0 +1,1 @@
+# JWT EdDSA plugin
