@@ -5,7 +5,6 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/golang-jwt/jwt/v5"
 	"net/http"
-	"strings"
 )
 
 // Config the plugin configuration.
@@ -16,10 +15,7 @@ type Config struct {
 
 // CreateConfig creates the default plugin configuration.
 func CreateConfig() *Config {
-	return &Config{
-		PublicKey: "",
-		LoginURL:  "http://localhost/login",
-	}
+	return &Config{}
 }
 
 // JwtEdDSA a plugin.
@@ -39,11 +35,11 @@ func New(ctx context.Context, next http.Handler, config *Config, name string) (h
 }
 
 func (e *JwtEdDSA) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	authorization := req.Header.Values("Authorization")
-	if len(authorization) < 1 {
+	authorization, err := req.Cookie("AccessToken")
+	if err != nil {
 		http.Redirect(rw, req, e.config.LoginURL, http.StatusFound)
 	} else {
-		tokenString := strings.TrimPrefix(authorization[0], "Bearer ")
+		tokenString := authorization.Value
 		_, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			return base58.Decode(e.config.PublicKey), nil
 		})
