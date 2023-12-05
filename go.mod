@@ -1,4 +1,4 @@
-module traefik-jwt-eddsa
+module github.com/ion-toolbox/traefik-jwt-eddsa
 
 go 1.21
 
