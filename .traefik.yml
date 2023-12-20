@@ -20,3 +20,4 @@ bannerPath: assets/banner.png
 testData:
   public_key: base58-encoded
   login_url: url_to_redirect
+  access_token_name: AccessToken
