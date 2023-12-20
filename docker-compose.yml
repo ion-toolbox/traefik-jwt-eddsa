@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  traefik:
+    restart: unless-stopped
+    image: traefik:3.0
+    container_name: traefik-plugin-test
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.middlewares.JWT.plugin.jwt.PublicKey=C1Fee8kDnVa1n6fAjfRBr7pAqN4aAADhW6hnidT3d8og"
+      - "traefik.http.middlewares.JWT.plugin.jwt.AmqpURL=amqp://guest:guest@localhost"
+    command:
+      - "--log.level=DEBUG"
+      - "--api=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=true"
+      - "--entrypoints.http.address=:80"
+      - "--experimental.localPlugins.jwt.modulename=github.com/ion-toolbox/traefik-jwt-eddsa"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - ./:/plugins-local/src/github.com/ion-toolbox/traefik-jwt-eddsa
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
