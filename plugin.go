@@ -6,7 +6,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	amqp "github.com/rabbitmq/amqp091-go"
+	amqp "github.com/ion-toolbox/rabbitmq-go"
 	"math/rand"
 	"net/http"
 	"strconv"
