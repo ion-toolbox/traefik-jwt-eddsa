@@ -986,7 +986,7 @@ func (c *Connection) openTune(config Config, auth Authentication) error {
 	}
 
 	// Edge case that may race with c.shutdown()
-	// https://github.com/rabbitmq/amqp091-go/issues/170
+	// https://github.com/ion-toolbox/rabbitmq-go/issues/170
 	c.m.Lock()
 
 	// When the server and client both use default 0, then the max channel is

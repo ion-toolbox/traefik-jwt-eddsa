@@ -76,8 +76,8 @@ func (subs *consumers) buffer(in chan *Delivery, out chan Delivery) {
 
 			case out <- *queue[0]:
 				/*
-				* https://github.com/rabbitmq/amqp091-go/issues/179
-				* https://github.com/rabbitmq/amqp091-go/pull/180
+				* https://github.com/ion-toolbox/rabbitmq-go/issues/179
+				* https://github.com/ion-toolbox/rabbitmq-go/pull/180
 				*
 				* Comment from @lars-t-hansen:
 				*
