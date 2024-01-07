@@ -21,3 +21,4 @@ testData:
   PublicKey: C1Fee8kDnVa1n6fAjfRBr7pAqN4aAADhW6hnidT3d8og
   LoginURL: url_to_redirect
   AccessTokenName: AccessToken
+  ParseCookies: true

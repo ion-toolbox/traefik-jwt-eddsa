@@ -1,12 +1,14 @@
 # github.com/btcsuite/btcutil v1.0.2
 ## explicit; go 1.13
 github.com/btcsuite/btcutil/base58
+# github.com/go-stomp/stomp/v3 v3.0.5
+## explicit; go 1.15
+github.com/go-stomp/stomp/v3
+github.com/go-stomp/stomp/v3/frame
+github.com/go-stomp/stomp/v3/internal/log
 # github.com/golang-jwt/jwt/v5 v5.2.0
 ## explicit; go 1.18
 github.com/golang-jwt/jwt/v5
 # github.com/google/uuid v1.5.0
 ## explicit
 github.com/google/uuid
-# github.com/ion-toolbox/rabbitmq-go v0.0.1
-## explicit; go 1.16
-github.com/ion-toolbox/rabbitmq-go

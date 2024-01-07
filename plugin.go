@@ -1,16 +1,19 @@
+// yaegi:tags purego
+
 package traefik_jwt_eddsa
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	amqp "github.com/ion-toolbox/rabbitmq-go"
 	"math/rand"
 	"net/http"
+	"reflect"
+	"regexp"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -19,10 +22,7 @@ type Config struct {
 	PublicKey       string `json:"public_key"`
 	LoginURL        string `json:"login_url"`
 	AccessTokenName string `json:"access_token_name"`
-	AmqpURL         string `json:"amqp_url"`
-	AmqpExchange    string `json:"amqp_exchange"`
-	AmqpRouting     string `json:"amqp_routing"`
-	AmqpQueue       string `json:"amqp_queue"`
+	ParseCookies    bool   `json:"parse_cookies"`
 }
 
 // CreateConfig creates the default plugin configuration.
@@ -32,55 +32,9 @@ func CreateConfig() *Config {
 
 // JwtEdDSA a plugin.
 type JwtEdDSA struct {
-	ctx    context.Context
 	next   http.Handler
 	name   string
-	amqp   *amqp.Channel
 	config *Config
-}
-
-type Token struct {
-	data  string
-	added time.Time
-}
-
-var tokens map[string]*Token = make(map[string]*Token)
-
-func handleAuthReplies(ctx context.Context, config *Config, channel *amqp.Channel) {
-	msgs, err := channel.ConsumeWithContext(ctx,
-		config.AmqpQueue,
-		"Traefik",
-		true,
-		false,
-		false,
-		false,
-		nil,
-	)
-	if err != nil {
-		return
-	}
-	for msg := range msgs {
-		body := string(msg.Body)
-		parts := strings.Split(body, ":")
-		tokens[parts[0]] = &Token{data: parts[1], added: time.Now()}
-	}
-}
-
-func cleanUpTokens(ctx context.Context) {
-	timer := time.NewTimer(2 * time.Minute)
-	minusTenMinutes, _ := time.ParseDuration("-10m")
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-timer.C:
-			for connectionId, token := range tokens {
-				if token.added.Before(time.Now().Add(minusTenMinutes)) {
-					delete(tokens, connectionId)
-				}
-			}
-		}
-	}
 }
 
 // New created a new plugin.
@@ -88,37 +42,24 @@ func New(ctx context.Context, next http.Handler, config *Config, name string) (h
 	if config.PublicKey == "" {
 		return nil, fmt.Errorf("no public key provided")
 	}
-
-	var channel *amqp.Channel = nil
-	connection, err := amqp.Dial(config.AmqpURL)
-	if err != nil {
-		defer connection.Close()
-		channel, err = connection.Channel()
-		if err != nil {
-			return nil, err
-		}
-		defer channel.Close()
-
-		go handleAuthReplies(ctx, config, channel)
-		go cleanUpTokens(ctx)
+	if config.AccessTokenName == "" {
+		return nil, fmt.Errorf("no access token name provided")
 	}
 
 	return &JwtEdDSA{
-		ctx:    ctx,
 		config: config,
 		name:   name,
 		next:   next,
-		amqp:   channel,
 	}, nil
 }
 
 func (e *JwtEdDSA) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	connectionId, errConnectionId := req.Cookie("X-Connection-Id")
+	connectionId, errConnectionId := req.Cookie("X-Ray-Id")
 	xConnectionId := ""
 	if errConnectionId != nil {
 		value := req.RemoteAddr + req.Header.Get("X-Forwarded-For") + strconv.Itoa(rand.Int())
 		cookie := &http.Cookie{
-			Name:     "X-Connection-Id",
+			Name:     "X-Ray-Id",
 			Value:    uuid.NewSHA1(uuid.NameSpaceURL, []byte(value)).String(),
 			Path:     "/",
 			Expires:  time.Time{},
@@ -130,7 +71,7 @@ func (e *JwtEdDSA) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	} else {
 		xConnectionId = connectionId.Value
 	}
-	rw.Header().Add("X-Connection-Id", xConnectionId)
+	rw.Header().Add("X-Ray-Id", xConnectionId)
 
 	authorization, noAccessToken := req.Cookie(e.config.AccessTokenName)
 	if noAccessToken != nil {
@@ -143,7 +84,7 @@ func (e *JwtEdDSA) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		tokenString := authorization.Value
 		token, badToken := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			return base58.Decode(e.config.PublicKey), nil
-		})
+		}, jwt.WithoutClaimsValidation())
 		if badToken != nil {
 			if e.config.LoginURL != "" {
 				http.Redirect(rw, req, e.config.LoginURL, http.StatusFound)
@@ -151,34 +92,28 @@ func (e *JwtEdDSA) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 				http.Error(rw, "Forbidden", http.StatusForbidden)
 			}
 		} else {
-			// Maybe it is needed to update the token
-			expirationTime, err := token.Claims.GetExpirationTime()
-			if err != nil {
-				http.Error(rw, "Can't find JWT expiration time", http.StatusInternalServerError)
-			} else {
-				// Already got response from auth service?
-				if tokens[xConnectionId] != nil {
-					newAuth := authorization
-					newAuth.Value = tokens[xConnectionId].data
-					tokenString = tokens[xConnectionId].data
-					delete(tokens, xConnectionId)
-					http.SetCookie(rw, newAuth)
-				} else {
-					// Ask auth service for a new token
-					minusOneHour, _ := time.ParseDuration("-1h")
-					if expirationTime.After(time.Now().Add(minusOneHour)) && xConnectionId != "" && e.amqp != nil {
-						e.amqp.PublishWithContext(
-							e.ctx,
-							e.config.AmqpExchange,
-							e.config.AmqpRouting,
-							false,
-							false,
-							amqp.Publishing{
-								ContentType: "text/plain",
-								Body:        []byte(xConnectionId + ":" + tokenString),
-							},
-						)
+			if e.config.ParseCookies {
+				firstLetterIsNotCapital := regexp.MustCompile("^[^A-Z]")
+				for k, v := range token.Claims.(jwt.MapClaims) {
+					header := "x-jwt"
+					if firstLetterIsNotCapital.MatchString(e.config.AccessTokenName) {
+						header += "-"
 					}
+					header += regexp.MustCompile("([A-Z][^A-Z])").ReplaceAllString(e.config.AccessTokenName, "-$1")
+					if firstLetterIsNotCapital.MatchString(k) {
+						header += "-"
+					}
+					header += regexp.MustCompile("([A-Z][^A-Z])").ReplaceAllString(k, "-$1")
+					if reflect.TypeOf(v).Kind() != reflect.String {
+						bytes, err := json.Marshal(v)
+						if err != nil {
+							return
+						}
+						rw.Header().Add(header, string(bytes))
+					} else {
+						rw.Header().Add(header, v.(string))
+					}
+
 				}
 			}
 			rw.Header().Add("Authorization", "Bearer "+tokenString)
