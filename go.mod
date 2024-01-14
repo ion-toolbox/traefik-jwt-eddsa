@@ -4,7 +4,6 @@ go 1.19
 
 require (
 	github.com/btcsuite/btcutil v1.0.2
-	github.com/go-stomp/stomp/v3 v3.0.5
 	github.com/golang-jwt/jwt/v5 v5.2.0
 	github.com/google/uuid v1.5.0
 )
