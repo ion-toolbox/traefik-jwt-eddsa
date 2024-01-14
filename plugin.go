@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -93,6 +94,11 @@ func (e *JwtEdDSA) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			}
 		} else {
 			if e.config.ParseCookies {
+				for k, _ := range req.Header {
+					if strings.HasPrefix("x-jwt", k) {
+						req.Header.Del(k)
+					}
+				}
 				firstLetterIsNotCapital := regexp.MustCompile("^[^A-Z]")
 				for k, v := range token.Claims.(jwt.MapClaims) {
 					header := "x-jwt"
@@ -109,14 +115,14 @@ func (e *JwtEdDSA) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 						if err != nil {
 							return
 						}
-						rw.Header().Add(header, string(bytes))
+						req.Header.Add(header, string(bytes))
 					} else {
-						rw.Header().Add(header, v.(string))
+						req.Header.Add(header, v.(string))
 					}
 
 				}
 			}
-			rw.Header().Add("Authorization", "Bearer "+tokenString)
+			req.Header.Add("Authorization", "Bearer "+tokenString)
 		}
 	}
 	e.next.ServeHTTP(rw, req)
