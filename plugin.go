@@ -94,7 +94,7 @@ func (e *JwtEdDSA) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			}
 		} else {
 			if e.config.ParseCookies {
-				for k, _ := range req.Header {
+				for k := range req.Header {
 					if strings.HasPrefix("x-jwt", k) {
 						req.Header.Del(k)
 					}
